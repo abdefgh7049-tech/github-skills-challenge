@@ -42,6 +42,27 @@ def test_anomalous_record_is_detected():
     assert event["type"] == "ANOMALY"
 
 
+def test_detector_reports_each_threshold_reason():
+    detector = AnomalyDetector()
+    record = {
+        "timestamp": "2026-09-20T10:05:00",
+        "service": "payment-service",
+        "response_time_ms": 501,
+        "cpu_percent": 81,
+        "memory_percent": 81,
+        "log_level": "WARNING",
+    }
+
+    event = detector.detect(record)
+
+    assert event["reasons"] == [
+        "High response time",
+        "High CPU utilization",
+        "High memory utilization",
+        "Error log detected",
+    ]
+
+
 def test_producer_publishes_event():
     topic = EventTopic("anomaly-events")
     producer = EventProducer(topic)
@@ -70,3 +91,18 @@ def test_consumer_receives_event():
     messages = consumer.consume()
 
     assert len(messages) == 1
+
+
+def test_producer_rejects_empty_event():
+    producer = EventProducer(EventTopic("anomaly-events"))
+
+    assert producer.publish(None) is False
+
+
+def test_topic_clear_removes_messages():
+    topic = EventTopic("anomaly-events")
+    topic.publish({"type": "ANOMALY"})
+
+    topic.clear()
+
+    assert topic.get_messages() == []
